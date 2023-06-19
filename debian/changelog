@@ -1,3 +1,28 @@
+gtk+3.0 (3.24.30-deepin6) unstable; urgency=medium
+
+  [ gongheng ]
+  * fix show select dialog, the app crash in wayland
+
+ -- gongheng <gongheng@uniontech.com>  Mon, 12 Jun 2023 18:06:00 +0800
+
+gtk+3.0 (3.24.30-5+deepin) unstable; urgency=medium
+
+  [ gongheng ]
+  * add topic
+
+ -- gongheng <gongheng@uniontech.com>  Wed, 4 Jan 2023 10:18:00 +0800
+
+gtk+3.0 (3.24.30-4+deepin) unstable; urgency=medium
+
+  [ gongheng ]
+  * debian/patches:
+    - Add patch file dde-filedialog.patch.
+      The patch implements the feature of gtk calling dde-file-manager file select dialog.
+  * debian/patches/series:
+    - Add patch file record in the series.
+
+ -- gongheng <gongheng@uniontech.com>  Wed, 2 Nov 2022 18:12:00 +0800
+
 gtk+3.0 (3.24.30-3) unstable; urgency=medium
 
   * Move org.gtk.Settings.Debug schema from -dev to -common.
