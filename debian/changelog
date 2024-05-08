@@ -1,3 +1,14 @@
+gtk+3.0 (3.24.41-1deepin1) unstable; urgency=medium
+
+  * Reapply deepin patches:
+    dde-filedialog.patch
+    debian/patches/fix-filedialog-in-wayland.patch
+  * Refresh dde-filedialog.patch.
+  * Refresh libgtk-3-0.symbols:
+    _d_ddefiledialog_override_gtk_dialog
+
+ -- Tianyu Chen <sweetyfish@deepin.org>  Wed, 08 May 2024 15:49:54 +0800
+
 gtk+3.0 (3.24.41-1) unstable; urgency=medium
 
   * New upstream release
