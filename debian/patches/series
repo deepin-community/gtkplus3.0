@@ -8,3 +8,5 @@ reftest-known-fail.patch
 Disable-accessibility-dump-aka-a11ytests-test.patch
 dde-filedialog.patch
 fix-filedialog-in-wayland.patch
+
+gdk-fix-gtk-app-startup-with-g_value_set_boxed-asser.patch

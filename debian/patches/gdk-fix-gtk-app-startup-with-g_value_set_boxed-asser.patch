@@ -1,0 +1,27 @@
+From fd0d3283e0fc8c3ae8cb6569ebde268945b63435 Mon Sep 17 00:00:00 2001
+From: hudeng <hudeng@uniontech.com>
+Date: Fri, 2 Jul 2021 17:23:56 +0800
+Subject: [PATCH] gdk: fix gtk app startup with 'g_value_set_boxed: assertion
+ G_VALUE_HOLDS_BOXED (value) failed error message' when xsettings use
+ 'XSETTINGS_TYPE_COLOR' type
+
+---
+ gdk/x11/xsettings-client.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/gdk/x11/xsettings-client.c b/gdk/x11/xsettings-client.c
+index f3e83f5e7a..2bab3c154f 100644
+--- a/gdk/x11/xsettings-client.c
++++ b/gdk/x11/xsettings-client.c
+@@ -339,7 +339,7 @@ parse_settings (unsigned char *data,
+             rgba.alpha = alpha / 65535.0;
+ 
+             value = g_new0 (GValue, 1);
+-            g_value_init (value, G_TYPE_STRING);
++            g_value_init (value, GDK_TYPE_RGBA);
+             g_value_set_boxed (value, &rgba);
+ 
+             GDK_NOTE(SETTINGS, g_message ("  %s = #%02X%02X%02X%02X", x_name, alpha,red, green, blue));
+-- 
+2.33.1
+

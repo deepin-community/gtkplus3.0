@@ -1,3 +1,10 @@
+gtk+3.0 (3.24.30-deepin7) unstable; urgency=medium
+
+  * Cherry-pick commit from gtk-4:
+    d/patches/gdk-fix-gtk-app-startup-with-g_value_set_boxed-asser.patch
+
+ -- Tianyu Chen <sweetyfish@deepin.org>  Wed, 08 May 2024 11:46:22 +0800
+
 gtk+3.0 (3.24.30-deepin6) unstable; urgency=medium
 
   [ gongheng ]
