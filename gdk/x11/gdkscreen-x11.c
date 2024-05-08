@@ -469,14 +469,15 @@ check_is_composited (GdkDisplay *display,
 }
 
 static GdkX11Monitor *
-find_monitor_by_output (GdkX11Display *x11_display, XID output)
+find_monitor_by_name (GdkX11Display *x11_display,
+                      char          *name)
 {
   int i;
 
   for (i = 0; i < x11_display->monitors->len; i++)
     {
       GdkX11Monitor *monitor = x11_display->monitors->pdata[i];
-      if (monitor->output == output)
+      if (g_strcmp0 (monitor->name, name) == 0)
         return monitor;
     }
 
@@ -568,8 +569,17 @@ init_randr15 (GdkScreen *screen, gboolean *changed)
 
       if (output_info->crtc)
         {
-          XRRCrtcInfo *crtc = XRRGetCrtcInfo (x11_screen->xdisplay, resources, output_info->crtc);
+          XRRCrtcInfo *crtc;
           int j;
+
+          gdk_x11_display_error_trap_push (display);
+          crtc = XRRGetCrtcInfo (x11_screen->xdisplay, resources,
+                                 output_info->crtc);
+          if (gdk_x11_display_error_trap_pop (display))
+            {
+              XRRFreeOutputInfo (output_info);
+              continue;
+            }
 
           for (j = 0; j < resources->nmode; j++)
             {
@@ -585,19 +595,6 @@ init_randr15 (GdkScreen *screen, gboolean *changed)
           XRRFreeCrtcInfo (crtc);
         }
 
-      monitor = find_monitor_by_output (x11_display, output);
-      if (monitor)
-        monitor->remove = FALSE;
-      else
-        {
-          monitor = g_object_new (GDK_TYPE_X11_MONITOR,
-                                  "display", display,
-                                  NULL);
-          monitor->output = output;
-          monitor->add = TRUE;
-          g_ptr_array_add (x11_display->monitors, monitor);
-        }
-
       /* Fetch minimal manufacturer information (PNP ID) from EDID */
       {
         #define EDID_LENGTH 128
@@ -610,6 +607,7 @@ init_randr15 (GdkScreen *screen, gboolean *changed)
 
         edid_atom = XInternAtom (disp, RR_PROPERTY_RANDR_EDID, FALSE);
 
+        gdk_x11_display_error_trap_push (display);
         XRRGetOutputProperty (disp, output,
                               edid_atom,
                               0,
@@ -622,6 +620,11 @@ init_randr15 (GdkScreen *screen, gboolean *changed)
                               &nbytes,
                               &bytes_left,
                               &prop);
+        if (gdk_x11_display_error_trap_pop (display))
+          {
+            XRRFreeOutputInfo (output_info);
+            continue;
+          }
 
         // Check partial EDID header (whole header: 00 ff ff ff ff ff ff 00)
         if (nbytes >= EDID_LENGTH && prop[0] == 0x00 && prop[1] == 0xff)
@@ -642,8 +645,22 @@ init_randr15 (GdkScreen *screen, gboolean *changed)
         #undef EDID_LENGTH
       }
 
+      name = gdk_x11_get_xatom_name_for_display (display, rr_monitors[i].name);
+      monitor = find_monitor_by_name (x11_display, name);
+      if (monitor)
+        monitor->remove = FALSE;
+      else
+        {
+          monitor = g_object_new (GDK_TYPE_X11_MONITOR,
+                                  "display", display,
+                                  NULL);
+          monitor->output = output;
+          monitor->name = g_strdup (name);
+          monitor->add = TRUE;
+          g_ptr_array_add (x11_display->monitors, monitor);
+        }
+
       gdk_monitor_get_geometry (GDK_MONITOR (monitor), &geometry);
-      name = g_strndup (output_info->name, output_info->nameLen);
 
       newgeo.x = rr_monitors[i].x / x11_screen->window_scale;
       newgeo.y = rr_monitors[i].y / x11_screen->window_scale;
@@ -672,7 +689,6 @@ init_randr15 (GdkScreen *screen, gboolean *changed)
       gdk_monitor_set_connector (GDK_MONITOR (monitor), name);
       gdk_monitor_set_manufacturer (GDK_MONITOR (monitor), manufacturer);
       g_free (manufacturer);
-      g_free (name);
 
       if (rr_monitors[i].primary)
         primary_output = monitor->output;
@@ -779,8 +795,13 @@ init_randr13 (GdkScreen *screen, gboolean *changed)
   for (i = 0; i < resources->noutput; ++i)
     {
       RROutput output = resources->outputs[i];
-      XRROutputInfo *output_info =
-        XRRGetOutputInfo (x11_screen->xdisplay, resources, output);
+      XRROutputInfo *output_info;
+
+      gdk_x11_display_error_trap_push (display);
+      output_info = XRRGetOutputInfo (x11_screen->xdisplay, resources, output);
+
+      if (gdk_x11_display_error_trap_pop (display))
+        continue;
 
       /* Non RandR1.2+ X driver have output name "default" */
       randr12_compat |= !g_strcmp0 (output_info->name, "default");
@@ -794,12 +815,21 @@ init_randr13 (GdkScreen *screen, gboolean *changed)
       if (output_info->crtc)
 	{
 	  GdkX11Monitor *monitor;
-	  XRRCrtcInfo *crtc = XRRGetCrtcInfo (x11_screen->xdisplay, resources, output_info->crtc);
+          XRRCrtcInfo *crtc;
           char *name;
           GdkRectangle geometry;
           GdkRectangle newgeo;
           int j;
           int refresh_rate = 0;
+
+          gdk_x11_display_error_trap_push (display);
+          crtc = XRRGetCrtcInfo (x11_screen->xdisplay, resources, output_info->crtc);
+
+          if (gdk_x11_display_error_trap_pop (display))
+            {
+              XRRFreeOutputInfo (output_info);
+              continue;
+            }
 
           for (j = 0; j < resources->nmode; j++)
             {
@@ -812,7 +842,8 @@ init_randr13 (GdkScreen *screen, gboolean *changed)
                 }
             }
 
-          monitor = find_monitor_by_output (x11_display, output);
+          name = g_strndup (output_info->name, output_info->nameLen);
+          monitor = find_monitor_by_name (x11_display, name);
           if (monitor)
             monitor->remove = FALSE;
           else
@@ -820,13 +851,13 @@ init_randr13 (GdkScreen *screen, gboolean *changed)
               monitor = g_object_new (gdk_x11_monitor_get_type (),
                                       "display", display,
                                       NULL);
+              monitor->name = g_strdup (name);
               monitor->output = output;
               monitor->add = TRUE;
               g_ptr_array_add (x11_display->monitors, monitor);
             }
 
           gdk_monitor_get_geometry (GDK_MONITOR (monitor), &geometry);
-          name = g_strndup (output_info->name, output_info->nameLen);
 
           newgeo.x = crtc->x / x11_screen->window_scale;
           newgeo.y = crtc->y / x11_screen->window_scale;
@@ -898,8 +929,11 @@ init_randr13 (GdkScreen *screen, gboolean *changed)
 
   old_primary = x11_display->primary_monitor;
   x11_display->primary_monitor = 0;
+
+  gdk_x11_display_error_trap_push (display);
   primary_output = XRRGetOutputPrimary (x11_screen->xdisplay,
                                         x11_screen->xroot_window);
+  gdk_x11_display_error_trap_pop_ignored (display);
 
   for (i = 0; i < x11_display->monitors->len; ++i)
     {
@@ -950,13 +984,15 @@ init_no_multihead (GdkScreen *screen, gboolean *changed)
       monitor->remove = TRUE;
     }
 
-  monitor = find_monitor_by_output (x11_display, 0);
-  if (monitor)
-    monitor->remove = FALSE;
+  if (x11_display->monitors->len > 0)
+    {
+      monitor = x11_display->monitors->pdata[0];
+      monitor->remove = FALSE;
+    }
   else
     {
       monitor = g_object_new (gdk_x11_monitor_get_type (),
-                              "display", x11_display,
+                              "display", display,
                               NULL);
       monitor->output = 0;
       monitor->add = TRUE;

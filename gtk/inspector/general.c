@@ -26,10 +26,12 @@
 #include "gtkswitch.h"
 #include "gtklistbox.h"
 #include "gtkprivate.h"
+#include "gtksettings.h"
 #include "gtksizegroup.h"
 #include "gtkimage.h"
 #include "gtkadjustment.h"
 #include "gtkbox.h"
+#include "gtkimmoduleprivate.h"
 
 #ifdef GDK_WINDOWING_X11
 #include "x11/gdkx.h"
@@ -62,6 +64,11 @@ struct _GtkInspectorGeneralPrivate
   GtkWidget *device_box;
   GtkWidget *gtk_version;
   GtkWidget *gdk_backend;
+  GtkWidget *pango_fontmap;
+  GtkWidget *app_id_frame;
+  GtkWidget *app_id;
+  GtkWidget *resource_path;
+  GtkWidget *im_module;
   GtkWidget *gl_version;
   GtkWidget *gl_vendor;
   GtkWidget *prefix;
@@ -117,6 +124,24 @@ init_version (GtkInspectorGeneral *gen)
 
   gtk_label_set_text (GTK_LABEL (gen->priv->gtk_version), GTK_VERSION);
   gtk_label_set_text (GTK_LABEL (gen->priv->gdk_backend), backend);
+}
+
+static void
+init_app_id (GtkInspectorGeneral *gen)
+{
+  GApplication *app;
+
+  app = g_application_get_default ();
+  if (!app)
+    {
+      gtk_widget_hide (gen->priv->app_id_frame);
+      return;
+    }
+
+  gtk_label_set_text (GTK_LABEL (gen->priv->app_id),
+                      g_application_get_application_id (app));
+  gtk_label_set_text (GTK_LABEL (gen->priv->resource_path),
+                      g_application_get_resource_base_path (app));
 }
 
 static G_GNUC_UNUSED void
@@ -479,6 +504,60 @@ init_display (GtkInspectorGeneral *gen)
   populate_display (screen, gen);
 }
 
+static void
+init_pango (GtkInspectorGeneral *gen)
+{
+  PangoFontMap *fontmap;
+  const char *type;
+  const char *name;
+
+  fontmap = pango_cairo_font_map_get_default ();
+  type = G_OBJECT_TYPE_NAME (fontmap);
+  if (strcmp (type, "PangoCairoFcFontMap") == 0)
+    name = "fontconfig";
+  else if (strcmp (type, "PangoCairoCoreTextFontMap") == 0)
+    name = "coretext";
+  else if (strcmp (type, "PangoCairoWin32FontMap") == 0)
+    name = "win32";
+  else
+    name = type;
+
+  gtk_label_set_label (GTK_LABEL (gen->priv->pango_fontmap), name);
+}
+
+static void
+im_module_changed (GtkSettings         *settings,
+                   GParamSpec          *pspec,
+                   GtkInspectorGeneral *gen)
+{
+  gtk_label_set_label (GTK_LABEL (gen->priv->im_module),
+                       _gtk_im_module_get_default_context_id ());
+}
+
+static void
+init_im_module (GtkInspectorGeneral *gen)
+{
+  GdkScreen *screen = gdk_screen_get_default ();
+  GtkSettings *settings = gtk_settings_get_for_screen (screen);
+  const char *default_context_id = _gtk_im_module_get_default_context_id ();
+
+  gtk_label_set_label (GTK_LABEL (gen->priv->im_module), default_context_id);
+
+  if (g_getenv ("GTK_IM_MODULE") != NULL)
+    {
+      /* This can't update if GTK_IM_MODULE envvar is set */
+      gtk_widget_set_tooltip_text (gen->priv->im_module,
+                                   _("IM Context is hardcoded by GTK_IM_MODULE"));
+      gtk_widget_set_sensitive (gen->priv->im_module, FALSE);
+      return;
+    }
+
+  g_signal_connect_object (settings,
+                           "notify::gtk-im-module",
+                           G_CALLBACK (im_module_changed),
+                           gen, 0);
+}
+
 static void populate_seats (GtkInspectorGeneral *gen);
 
 static void
@@ -646,8 +725,11 @@ gtk_inspector_general_init (GtkInspectorGeneral *gen)
   gen->priv = gtk_inspector_general_get_instance_private (gen);
   gtk_widget_init_template (GTK_WIDGET (gen));
   init_version (gen);
+  init_app_id (gen);
   init_env (gen);
   init_display (gen);
+  init_pango (gen);
+  init_im_module (gen);
   init_gl (gen);
   init_device (gen);
 }
@@ -735,6 +817,11 @@ gtk_inspector_general_class_init (GtkInspectorGeneralClass *klass)
   gtk_widget_class_bind_template_child_private (widget_class, GtkInspectorGeneral, gl_box);
   gtk_widget_class_bind_template_child_private (widget_class, GtkInspectorGeneral, gtk_version);
   gtk_widget_class_bind_template_child_private (widget_class, GtkInspectorGeneral, gdk_backend);
+  gtk_widget_class_bind_template_child_private (widget_class, GtkInspectorGeneral, pango_fontmap);
+  gtk_widget_class_bind_template_child_private (widget_class, GtkInspectorGeneral, im_module);
+  gtk_widget_class_bind_template_child_private (widget_class, GtkInspectorGeneral, app_id_frame);
+  gtk_widget_class_bind_template_child_private (widget_class, GtkInspectorGeneral, app_id);
+  gtk_widget_class_bind_template_child_private (widget_class, GtkInspectorGeneral, resource_path);
   gtk_widget_class_bind_template_child_private (widget_class, GtkInspectorGeneral, gl_version);
   gtk_widget_class_bind_template_child_private (widget_class, GtkInspectorGeneral, gl_vendor);
   gtk_widget_class_bind_template_child_private (widget_class, GtkInspectorGeneral, prefix);

@@ -1068,23 +1068,30 @@ transmute_cf_unicodetext_to_utf8_string (const guchar    *data,
                                          gint            *set_data_length,
                                          GDestroyNotify  *set_data_destroy)
 {
-  wchar_t *ptr, *p, *q;
+  wchar_t *ptr, *p, *q, *endp;
   gchar *result;
   glong wclen, u8_len;
 
-  /* Strip out \r */
+  /* Replace CR and CR+LF with LF */
   ptr = (wchar_t *) data;
   p = ptr;
   q = ptr;
+  endp = ptr + length / 2;
   wclen = 0;
 
-  while (p < ptr + length / 2)
+  while (p < endp)
     {
       if (*p != L'\r')
         {
           *q++ = *p;
           wclen++;
         }
+      else if (p + 1 >= endp || *(p + 1) != L'\n')
+        {
+          *q++ = L'\n';
+          wclen++;
+        }
+
       p++;
     }
 
@@ -1269,24 +1276,31 @@ transmute_cf_text_to_utf8_string (const guchar    *data,
                                   gint            *set_data_length,
                                   GDestroyNotify  *set_data_destroy)
 {
-  char *ptr, *p, *q;
+  char *ptr, *p, *q, *endp;
   gchar *result;
   glong wclen, u8_len;
   wchar_t *wstr;
 
-  /* Strip out \r */
+  /* Replace CR and CR+LF with LF */
   ptr = (gchar *) data;
   p = ptr;
   q = ptr;
+  endp = ptr + length / 2;
   wclen = 0;
 
-  while (p < ptr + length / 2)
+  while (p < endp)
     {
       if (*p != '\r')
         {
           *q++ = *p;
           wclen++;
         }
+      else if (p + 1 > endp || *(p + 1) != '\n')
+        {
+          *q++ = '\n';
+          wclen++;
+        }
+
       p++;
     }
 
@@ -1954,10 +1968,10 @@ queue_open_clipboard (GdkWin32ClipboardQueueAction  action,
 	return;
     }
 
-  info = g_slice_new (GdkWin32ClipboardQueueInfo);
+  info = g_slice_new0 (GdkWin32ClipboardQueueInfo);
 
   info->display = display;
-  g_set_object (&info->requestor, requestor);
+  info->requestor = g_object_ref (requestor);
   info->selection = GDK_SELECTION_CLIPBOARD;
   info->target = target;
   info->idle_time = 0;

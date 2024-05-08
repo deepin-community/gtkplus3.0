@@ -49,6 +49,12 @@
 #include "xdg-foreign-unstable-v1-client-protocol.h"
 #include "server-decoration-client-protocol.h"
 
+#ifdef HAVE_TOPLEVEL_STATE_SUSPENDED
+#define XDG_WM_BASE_VERSION      6
+#else
+#define XDG_WM_BASE_VERSION      2
+#endif
+
 /**
  * SECTION:wayland_interaction
  * @Short_description: Wayland backend-specific functions
@@ -84,7 +90,10 @@
 
 #define MIN_SYSTEM_BELL_DELAY_MS 20
 
-#define GTK_SHELL1_VERSION       4
+#define GTK_SHELL1_VERSION       5
+#ifdef HAVE_XDG_ACTIVATION
+#define XDG_ACTIVATION_VERSION   1
+#endif
 
 static void _gdk_wayland_display_load_cursor_theme (GdkWaylandDisplay *display_wayland);
 
@@ -124,10 +133,6 @@ xdg_wm_base_ping (void               *data,
                   struct xdg_wm_base *xdg_wm_base,
                   uint32_t            serial)
 {
-  GdkWaylandDisplay *display_wayland = data;
-
-  _gdk_wayland_display_update_serial (display_wayland, serial);
-
   GDK_NOTE (EVENTS,
             g_message ("ping, shell %p, serial %u\n", xdg_wm_base, serial));
 
@@ -411,6 +416,7 @@ gdk_registry_handle_global (void               *data,
   else if (strcmp (interface, "xdg_wm_base") == 0)
     {
       display_wayland->xdg_wm_base_id = id;
+      display_wayland->xdg_wm_base_version = version;
     }
   else if (strcmp (interface, "zxdg_shell_v6") == 0)
     {
@@ -523,6 +529,17 @@ gdk_registry_handle_global (void               *data,
       _gdk_wayland_screen_init_xdg_output (display_wayland->screen);
       _gdk_wayland_display_async_roundtrip (display_wayland);
     }
+#ifdef HAVE_XDG_ACTIVATION
+  else if (strcmp (interface, "xdg_activation_v1") == 0)
+    {
+      display_wayland->xdg_activation_version =
+        MIN (version, XDG_ACTIVATION_VERSION);
+      display_wayland->xdg_activation =
+        wl_registry_bind (display_wayland->wl_registry, id,
+                          &xdg_activation_v1_interface,
+                          display_wayland->xdg_activation_version);
+    }
+#endif
 
   g_hash_table_insert (display_wayland->known_globals,
                        GUINT_TO_POINTER (id), g_strdup (interface));
@@ -623,6 +640,7 @@ _gdk_wayland_display_open (const gchar *display_name)
     }
 
   process_on_globals_closures (display_wayland);
+  display_wayland->selection = gdk_wayland_selection_new ();
 
   /* Wait for initializing to complete. This means waiting for all
    * asynchrounous roundtrips that were triggered during initial roundtrip. */
@@ -641,7 +659,8 @@ _gdk_wayland_display_open (const gchar *display_name)
       display_wayland->xdg_wm_base =
         wl_registry_bind (display_wayland->wl_registry,
                           display_wayland->xdg_wm_base_id,
-                          &xdg_wm_base_interface, 1);
+                          &xdg_wm_base_interface,
+                          MIN (display_wayland->xdg_wm_base_version, XDG_WM_BASE_VERSION));
       xdg_wm_base_add_listener (display_wayland->xdg_wm_base,
                                 &xdg_wm_base_listener,
                                 display_wayland);
@@ -665,8 +684,6 @@ _gdk_wayland_display_open (const gchar *display_name)
 
       return NULL;
     }
-
-  display_wayland->selection = gdk_wayland_selection_new ();
 
   g_signal_emit_by_name (display, "opened");
 
@@ -939,6 +956,12 @@ gdk_wayland_display_notify_startup_complete (GdkDisplay  *display,
 {
   GdkWaylandDisplay *display_wayland = GDK_WAYLAND_DISPLAY (display);
 
+#ifdef HAVE_XDG_ACTIVATION
+  /* Will be signaled with focus activation */
+  if (display_wayland->xdg_activation)
+    return;
+#endif
+
   if (startup_id == NULL)
     {
       startup_id = display_wayland->startup_notification_id;
@@ -947,6 +970,10 @@ gdk_wayland_display_notify_startup_complete (GdkDisplay  *display,
         return;
     }
 
+#ifdef HAVE_XDG_ACTIVATION
+  if (display_wayland->xdg_activation) /* FIXME: Isn't this redundant? */
+    return;
+#endif
   if (display_wayland->gtk_shell)
     gtk_shell1_set_startup_id (display_wayland->gtk_shell, startup_id);
 }
@@ -1107,6 +1134,9 @@ gdk_wayland_display_set_cursor_theme (GdkDisplay  *display,
 
   g_assert (display_wayland);
   g_assert (display_wayland->shm);
+
+  if (size == 0)
+    size = 24;
 
   if (g_strcmp0 (name, display_wayland->cursor_theme_name) == 0 &&
       display_wayland->cursor_theme_size == size)

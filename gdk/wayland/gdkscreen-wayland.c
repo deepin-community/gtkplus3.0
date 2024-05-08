@@ -336,7 +336,7 @@ struct _TranslationEntry {
 static TranslationEntry * find_translation_entry_by_schema (const char *schema,
                                                             const char *key);
 static void
-update_xft_settings (GdkScreen *screen)
+update_xft_settings (GdkScreen *screen, gboolean notify)
 {
   GdkWaylandScreen *screen_wayland = GDK_WAYLAND_SCREEN (screen);
   GSettings *settings;
@@ -471,25 +471,29 @@ update_xft_settings (GdkScreen *screen)
   if (screen_wayland->xft_settings.antialias != xft_settings.antialias)
     {
       screen_wayland->xft_settings.antialias = xft_settings.antialias;
-      notify_setting (screen, "gtk-xft-antialias");
+      if (notify)
+        notify_setting (screen, "gtk-xft-antialias");
     }
 
   if (screen_wayland->xft_settings.hinting != xft_settings.hinting)
     {
       screen_wayland->xft_settings.hinting = xft_settings.hinting;
-      notify_setting (screen, "gtk-xft-hinting");
+      if (notify)
+        notify_setting (screen, "gtk-xft-hinting");
     }
 
   if (screen_wayland->xft_settings.hintstyle != xft_settings.hintstyle)
     {
       screen_wayland->xft_settings.hintstyle = xft_settings.hintstyle;
-      notify_setting (screen, "gtk-xft-hintstyle");
+      if (notify)
+        notify_setting (screen, "gtk-xft-hintstyle");
     }
 
   if (screen_wayland->xft_settings.rgba != xft_settings.rgba)
     {
       screen_wayland->xft_settings.rgba = xft_settings.rgba;
-      notify_setting (screen, "gtk-xft-rgba");
+      if (notify)
+        notify_setting (screen, "gtk-xft-rgba");
     }
 
   if (screen_wayland->xft_settings.dpi != xft_settings.dpi)
@@ -510,7 +514,8 @@ update_xft_settings (GdkScreen *screen)
 
       _gdk_screen_set_resolution (screen, dpi);
 
-      notify_setting (screen, "gtk-xft-dpi");
+      if (notify)
+        notify_setting (screen, "gtk-xft-dpi");
     }
 }
 
@@ -555,6 +560,7 @@ static TranslationEntry translations[] = {
   { FALSE, "org.gnome.desktop.wm.preferences", "action-middle-click-titlebar", "gtk-titlebar-middle-click", G_TYPE_STRING, { .s = "none" } },
   { FALSE, "org.gnome.desktop.wm.preferences", "action-right-click-titlebar", "gtk-titlebar-right-click", G_TYPE_STRING, { .s = "menu" } },
   { FALSE, "org.gnome.desktop.a11y", "always-show-text-caret", "gtk-keynav-use-caret", G_TYPE_BOOLEAN, { .b = FALSE } },
+  { FALSE, "org.gnome.desktop.a11y.interface", "high-contrast", "high-contrast", G_TYPE_NONE, { .b = FALSE } },
   { FALSE, "org.gnome.fontconfig", "serial", "gtk-fontconfig-timestamp", G_TYPE_INT, { .i = 0 } }
 };
 
@@ -603,6 +609,13 @@ find_translation_entry_by_setting (const gchar *setting)
 }
 
 static void
+high_contrast_changed (GdkScreen *screen)
+{
+  notify_setting (screen, "gtk-theme-name");
+  notify_setting (screen, "gtk-icon-theme-name");
+}
+
+static void
 settings_changed (GSettings   *settings,
                   const gchar *key,
                   GdkScreen   *screen)
@@ -615,8 +628,10 @@ settings_changed (GSettings   *settings,
     {
       if (entry->type != G_TYPE_NONE)
         notify_setting (screen, entry->setting);
+      else if (strcmp (key, "high-contrast") == 0)
+        high_contrast_changed (screen);
       else
-        update_xft_settings (screen);
+        update_xft_settings (screen, TRUE);
     }
 }
 
@@ -648,7 +663,7 @@ apply_portal_setting (TranslationEntry *entry,
         entry->fallback.i = get_order (g_variant_get_string (value, NULL));
       else if (strcmp (entry->key, "text-scaling-factor") == 0)
         entry->fallback.i = (int) (g_variant_get_double (value) * 65536.0);
-      update_xft_settings (screen);
+      update_xft_settings (screen, TRUE);
       break;
     default:
       break;
@@ -829,7 +844,7 @@ fallback:
       g_settings_schema_unref (schema);
     }
 
-  update_xft_settings (screen);
+  update_xft_settings (screen, FALSE);
 }
 
 static void
@@ -997,14 +1012,45 @@ set_decoration_layout_from_entry (GdkScreen        *screen,
     }
 }
 
+static void
+set_theme_from_entry (GdkScreen        *screen,
+                      TranslationEntry *entry,
+                      GValue           *value)
+{
+  GdkWaylandScreen *screen_wayland = GDK_WAYLAND_SCREEN (screen);
+  GSettings *settings = NULL;
+  GSettingsSchema *schema = NULL;
+  gboolean hc = FALSE;
+
+  if (screen_wayland->settings_portal == NULL)
+    {
+      settings = (GSettings *)g_hash_table_lookup (screen_wayland->settings,
+                                                   "org.gnome.desktop.a11y.interface");
+    }
+
+  if (settings)
+    g_object_get (settings, "settings-schema", &schema, NULL);
+
+  if (schema && g_settings_schema_has_key (schema, "high-contrast"))
+    hc = g_settings_get_boolean (settings, "high-contrast");
+
+  g_clear_pointer (&schema, g_settings_schema_unref);
+
+  if (hc)
+    g_value_set_static_string (value, "HighContrast");
+  else
+    set_value_from_entry (screen, entry, value);
+}
+
 static gboolean
 set_capability_setting (GdkScreen                 *screen,
                         GValue                    *value,
                         enum gtk_shell1_capability test)
 {
   GdkWaylandScreen *wayland_screen = GDK_WAYLAND_SCREEN (screen);
+  int testbit = 1 << (test - 1);
 
-  g_value_set_boolean (value, (wayland_screen->shell_capabilities & test) == test);
+  g_value_set_boolean (value, (wayland_screen->shell_capabilities & testbit) == testbit);
 
   return TRUE;
 }
@@ -1028,6 +1074,8 @@ gdk_wayland_screen_get_setting (GdkScreen   *screen,
     {
       if (strcmp (name, "gtk-decoration-layout") == 0)
         set_decoration_layout_from_entry (screen, entry, value);
+      else if (strcmp (name, "gtk-theme-name") == 0)
+        set_theme_from_entry (screen, entry, value);
       else
         set_value_from_entry (screen, entry, value);
       return TRUE;
@@ -1295,6 +1343,7 @@ fontconfig_dbus_proxy_open_cb (GObject      *object,
       g_free (screen_wayland->dbus_settings.modules);
 
       screen_wayland->dbus_settings.modules = g_variant_dup_string (value, NULL);
+      notify_setting (GDK_SCREEN (screen_wayland), "gtk-modules");
     }
 
   if (value != NULL)

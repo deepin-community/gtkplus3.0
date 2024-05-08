@@ -112,6 +112,7 @@
 #include "gtkstylecontextprivate.h"
 #include "gtkprogresstrackerprivate.h"
 #include "gtksettingsprivate.h"
+#include <string.h> /* memset */
 
 #ifdef GDK_WINDOWING_WAYLAND
 #include "wayland/gdkwayland.h"
@@ -456,7 +457,7 @@ window_focus_in (GtkWidget  *widget,
       if (focus == NULL || !gtk_widget_is_ancestor (focus, GTK_WIDGET (popover)))
         gtk_widget_grab_focus (GTK_WIDGET (popover));
 
-      if (priv->grab_notify_blocked)
+      if (priv->grab_notify_blocked && priv->widget)
         g_signal_handler_unblock (priv->widget, priv->grab_notify_id);
 
       priv->grab_notify_blocked = FALSE;
@@ -2159,6 +2160,8 @@ gtk_popover_update_relative_to (GtkPopover *popover,
         g_signal_connect (priv->widget, "grab-notify",
                           G_CALLBACK (_gtk_popover_parent_grab_notify),
                           popover);
+      if (priv->grab_notify_blocked)
+        g_signal_handler_block (priv->widget, priv->grab_notify_id);
 
       /* Give ownership of the popover to widget */
       widget_manage_popover (priv->widget, popover);
@@ -2314,7 +2317,7 @@ gtk_popover_set_pointing_to (GtkPopover         *popover,
  * If a rectangle to point to has been set, this function will
  * return %TRUE and fill in @rect with such rectangle, otherwise
  * it will return %FALSE and fill in @rect with the attached
- * widget coordinates.
+ * widget width and height if a widget exists, otherwise it will zero-out @rect.
  *
  * Returns: %TRUE if a rectangle to point to was set.
  **/
@@ -2325,17 +2328,17 @@ gtk_popover_get_pointing_to (GtkPopover   *popover,
   GtkPopoverPrivate *priv = gtk_popover_get_instance_private (popover);
 
   g_return_val_if_fail (GTK_IS_POPOVER (popover), FALSE);
+  g_return_val_if_fail (rect != NULL, FALSE);
 
-  if (rect)
+  if (priv->has_pointing_to)
+    *rect = priv->pointing_to;
+  else if (priv->widget)
     {
-      if (priv->has_pointing_to)
-        *rect = priv->pointing_to;
-      else if (priv->widget)
-        {
-          gtk_widget_get_allocation (priv->widget, rect);
-          rect->x = rect->y = 0;
-        }
+      gtk_widget_get_allocation (priv->widget, rect);
+      rect->x = rect->y = 0;
     }
+  else
+    memset (rect, 0, sizeof (GdkRectangle));
 
   return priv->has_pointing_to;
 }
