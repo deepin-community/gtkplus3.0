@@ -71,7 +71,7 @@
  * Widget that displays any object that implements the #GtkTreeModel interface.
  *
  * Please refer to the
- * [tree widget conceptual overview][TreeWidget]
+ * [tree widget conceptual overview](TreeWidget.html)
  * for an overview of all the objects and data types related
  * to the tree widget and how they work together.
  *
@@ -99,11 +99,12 @@
  * # GtkTreeView as GtkBuildable
  *
  * The GtkTreeView implementation of the GtkBuildable interface accepts
- * #GtkTreeViewColumn objects as <child> elements and exposes the internal
+ * #GtkTreeViewColumn objects as `<child>` elements and exposes the internal
  * #GtkTreeSelection in UI definitions.
  *
  * An example of a UI definition fragment with GtkTreeView:
- * |[
+ *
+ * |[<!-- language="xml" -->
  * <object class="GtkTreeView" id="treeview">
  *   <property name="model">liststore1</property>
  *   <child>
@@ -1329,7 +1330,7 @@ G_GNUC_END_IGNORE_DEPRECATIONS
    * Space, Shift+Space, Return or Enter is pressed.
    *
    * For selection handling refer to the
-   * [tree widget conceptual overview][TreeWidget]
+   * [tree widget conceptual overview](TreeWidget.html)
    * as well as #GtkTreeSelection.
    */
   tree_view_signals[ROW_ACTIVATED] =

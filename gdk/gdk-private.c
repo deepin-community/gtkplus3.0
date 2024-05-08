@@ -22,7 +22,9 @@ gdk__private__ (void)
     gdk_get_desktop_autostart_id,
     gdk_profiler_is_running,
     gdk_profiler_start,
-    gdk_profiler_stop
+    gdk_profiler_stop,
+    gdk_window_titlebar_gesture,
+    gdk_window_is_impl_offscreen,
   };
 
   return &table;

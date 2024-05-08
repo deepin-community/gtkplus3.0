@@ -41,7 +41,7 @@
  * @Title: GtkTextTagTable
  *
  * You may wish to begin by reading the
- * [text widget conceptual overview][TextWidget]
+ * [text widget conceptual overview](TextWidget.html)
  * which gives an overview of all the objects and
  * data types related to the text widget and how they work together.
  *
@@ -49,10 +49,11 @@
  *
  * The GtkTextTagTable implementation of the GtkBuildable interface
  * supports adding tags by specifying “tag” as the “type” attribute
- * of a <child> element.
+ * of a `<child>` element.
  *
  * An example of a UI definition fragment specifying tags:
- * |[
+ *
+ * |[<!-- language="xml" -->
  * <object class="GtkTextTagTable">
  *  <child type="tag">
  *    <object class="GtkTextTag"/>

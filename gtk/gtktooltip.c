@@ -42,6 +42,9 @@
 #ifdef GDK_WINDOWING_WAYLAND
 #include "wayland/gdkwayland.h"
 #endif
+#ifdef GDK_WINDOWING_X11
+#include "x11/gdkx.h"
+#endif
 
 
 /**
@@ -877,6 +880,7 @@ gtk_tooltip_position (GtkTooltip *tooltip,
   int anchor_rect_padding;
 
   gtk_widget_realize (GTK_WIDGET (tooltip->current_window));
+  gtk_window_move_resize (tooltip->current_window);
   window = _gtk_widget_get_window (GTK_WIDGET (tooltip->current_window));
 
   tooltip->tooltip_widget = new_tooltip_widget;
@@ -897,6 +901,16 @@ gtk_tooltip_position (GtkTooltip *tooltip,
 
   if (cursor_size == 0)
     cursor_size = gdk_display_get_default_cursor_size (display);
+
+#ifdef GDK_WINDOWING_X11
+  if (GDK_IS_X11_SCREEN (screen))
+    {
+      /* Cursor size on X11 comes directly from XSettings which
+       * report physical sizes, unlike on other backends. So in
+       * that case we have to scale the retrieved cursor_size */
+       cursor_size /= gtk_widget_get_scale_factor (new_tooltip_widget);
+    }
+#endif
 
   if (device)
     anchor_rect_padding = MAX (4, cursor_size - 32);
