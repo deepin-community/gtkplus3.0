@@ -1,3 +1,9 @@
+gtk+3.0 (3.24.41-1deepin2) unstable; urgency=medium
+
+  * fix CVE-2024-6655.
+
+ -- kongxinglong <kongxinglong@uniontech.com>  Tue, 15 Oct 2024 17:10:25 +0800
+
 gtk+3.0 (3.24.41-1deepin1) unstable; urgency=medium
 
   * Reapply deepin patches:

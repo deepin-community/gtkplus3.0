@@ -5,3 +5,4 @@ reftest_compare_surfaces-Report-how-much-the-images-diffe.patch
 reftests-Allow-minor-differences-to-be-tolerated.patch
 dde-filedialog.patch
 fix-filedialog-in-wayland.patch
+CVE-2024-6655.patch
