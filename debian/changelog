@@ -1,3 +1,12 @@
+gtk+3.0 (3.24.41-1deepin3) unstable; urgency=medium
+
+  * Fix app crash when filter name include "()".
+  * Support custom set the accept button label.
+  * Fix app crash when show file dialog in wayland.
+  * Fix app crash when repeatedly show and close file dialog.
+
+ -- gongheng <gongheng@uniontech.com>  Mon, 21 Oct 2024 19:15:23 +0800
+
 gtk+3.0 (3.24.41-1deepin2) unstable; urgency=medium
 
   * fix CVE-2024-6655.

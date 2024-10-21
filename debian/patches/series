@@ -6,3 +6,4 @@ reftests-Allow-minor-differences-to-be-tolerated.patch
 dde-filedialog.patch
 fix-filedialog-in-wayland.patch
 CVE-2024-6655.patch
+Fix-filedialog-crash.patch
