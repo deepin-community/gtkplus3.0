@@ -1,0 +1,37 @@
+Index: gtkplus3.0/gtk/ddefiledialog.c
+===================================================================
+--- gtkplus3.0.orig/gtk/ddefiledialog.c
++++ gtkplus3.0/gtk/ddefiledialog.c
+@@ -459,7 +459,7 @@ static void _gtk_file_chooser_set_do_ove
+     d_debug("value: %d\n", do_overwrite_confirmation);
+ }
+ 
+-static void d_show_dbus_filedialog(GtkWidget *widget_ghost)
++static gboolean on_show_timeout(GtkWidget *widget_ghost)
+ {
+     guint64 dbus_dialog_winId;
+     const gchar *title = gtk_window_get_title(GTK_WINDOW(widget_ghost));
+@@ -483,15 +483,21 @@ static void d_show_dbus_filedialog(GtkWi
+     }
+ 
+     if (!d_dbus_filedialog_call_by_ghost_widget_sync(widget_ghost, "show", NULL, NULL, NULL))
+-        return;
++        return FALSE;
+ 
+     
+     if (GDK_IS_X11_DISPLAY(gtk_widget_get_display(widget_ghost))) {
+         if (!d_dbus_filedialog_call_by_ghost_widget_sync(widget_ghost, "winId", NULL, "(t)", &dbus_dialog_winId))
+-            return;
++            return FALSE;
+         XSetTransientForHint(gdk_x11_get_default_xdisplay(), dbus_dialog_winId, GDK_WINDOW_XID(gtk_widget_get_window(widget_ghost)));
+     }
+     
++    return FALSE;
++}
++
++static void d_show_dbus_filedialog(GtkWidget *widget_ghost)
++{
++    g_timeout_add(200, on_show_timeout, widget_ghost);
+ }
+ 
+ static void d_hide_dbus_filedialog(GtkWidget *widget_ghost)

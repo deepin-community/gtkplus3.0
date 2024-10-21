@@ -1,3 +1,13 @@
+gtk+3.0 (3.24.41-1deepin3) unstable; urgency=medium
+
+  * fix multiple open and close file dialog, app crash.
+  * debian/patchs:
+    - Add file Fix-show-and-close-filedialog-crash.patch.
+  * debian/pathchs/series:
+    - Add file record in the series.
+
+ -- gongheng <gongheng@uniontech.com>  Tue, 15 Oct 2024 17:10:25 +0800
+
 gtk+3.0 (3.24.41-1deepin2) unstable; urgency=medium
 
   * fix CVE-2024-6655.
