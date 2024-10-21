@@ -1,0 +1,167 @@
+Index: gtkplus3.0/gtk/ddefiledialog.c
+===================================================================
+--- gtkplus3.0.orig/gtk/ddefiledialog.c
++++ gtkplus3.0/gtk/ddefiledialog.c
+@@ -51,6 +51,14 @@ typedef enum {
+ } DialogCode;
+ 
+ typedef enum {
++    LookIn          = 0,
++    FileName        = 1,
++    FileTypeLabel   = 2,
++    Accept          = 3,
++    Reject          = 4
++} DialogLabel;
++
++typedef enum {
+     ShowDirsOnly                = 0x00000001,
+     DontResolveSymlinks         = 0x00000002,
+     DontConfirmOverwrite        = 0x00000004,
+@@ -459,13 +467,75 @@ static void _gtk_file_chooser_set_do_ove
+     d_debug("value: %d\n", do_overwrite_confirmation);
+ }
+ 
+-static void d_show_dbus_filedialog(GtkWidget *widget_ghost)
++gboolean 
++_gtk_file_chooser_is_gtk_stock_label(const gchar *label) {
++    const gchar *gtk_labels[] = {
++        GTK_STOCK_OK,
++        GTK_STOCK_OPEN,
++        GTK_STOCK_SAVE,
++        GTK_STOCK_SAVE_AS,
++        GTK_STOCK_APPLY,
++        GTK_STOCK_ADD,
++        GTK_STOCK_YES,
++        GTK_STOCK_CANCEL,
++        "_Open",
++        NULL
++    };
++
++    for (int i = 0; gtk_labels[i] != NULL; i++) {
++        if (g_strcmp0(label, gtk_labels[i]) == 0) {
++            return TRUE;
++        }
++    }
++
++    return FALSE;
++}
++
++GtkWidget* 
++_gtk_file_chooser_get_accept_button(GtkWidget *widget_ghost) {
++    GtkWidget *button = gtk_dialog_get_widget_for_response(GTK_DIALOG(widget_ghost), GTK_RESPONSE_ACCEPT);
++    if (button)
++        return button;
++
++    button = gtk_dialog_get_widget_for_response(GTK_DIALOG(widget_ghost), GTK_RESPONSE_OK);
++    if (button)
++        return button;
++
++    button = gtk_dialog_get_widget_for_response(GTK_DIALOG(widget_ghost), GTK_RESPONSE_YES);
++    if (button)
++        return button;
++
++    button = gtk_dialog_get_widget_for_response(GTK_DIALOG(widget_ghost), GTK_RESPONSE_APPLY);
++    if (button)
++        return button;
++
++    return NULL;
++}
++
++void 
++_gtk_file_chooser_set_custom_button_label(GtkWidget *widget_ghost) {
++    GtkDialog *dialog = GTK_DIALOG(widget_ghost);
++    GtkWidget *button = _gtk_file_chooser_get_accept_button(dialog);
++    if (GTK_IS_BUTTON(button)) {
++        const gchar* label = gtk_button_get_label(GTK_BUTTON(button));
++        if (!_gtk_file_chooser_is_gtk_stock_label(label)) {
++            d_dbus_filedialog_call_by_ghost_widget_sync(widget_ghost,
++                                                "setLabelText",
++                                                g_variant_new("(is)", (gint32)Accept, label),
++                                                NULL,
++                                                NULL);
++        }
++    }
++}
++
++static gboolean on_show_timeout(GtkWidget *widget_ghost)
+ {
+     guint64 dbus_dialog_winId;
+     const gchar *title = gtk_window_get_title(GTK_WINDOW(widget_ghost));
+     GtkFileChooserAction action = gtk_file_chooser_get_action(GTK_FILE_CHOOSER(widget_ghost));
+ 
+     gtk_file_chooser_set_action(GTK_FILE_CHOOSER(widget_ghost), action);
++    _gtk_file_chooser_set_custom_button_label(widget_ghost);
+ 
+     // 由于在某些程序中(qt4 gtk style)会直接使用g_object_set设置do-overwrite-confirmation这个属性
+     // 所以需要在此处再次获取值传递给dbus dialog
+@@ -483,15 +553,23 @@ static void d_show_dbus_filedialog(GtkWi
+     }
+ 
+     if (!d_dbus_filedialog_call_by_ghost_widget_sync(widget_ghost, "show", NULL, NULL, NULL))
+-        return;
++        return FALSE;
+ 
+-    
+-    if (GDK_IS_X11_DISPLAY(gtk_widget_get_display(widget_ghost))) {
++#ifdef GDK_WINDOWING_X11
++    GdkDisplay *display = gdk_display_get_default();
++    if (GDK_IS_X11_DISPLAY(display)) {
+         if (!d_dbus_filedialog_call_by_ghost_widget_sync(widget_ghost, "winId", NULL, "(t)", &dbus_dialog_winId))
+-            return;
++            return FALSE;
+         XSetTransientForHint(gdk_x11_get_default_xdisplay(), dbus_dialog_winId, GDK_WINDOW_XID(gtk_widget_get_window(widget_ghost)));
+     }
+-    
++#endif
++
++    return FALSE;
++}
++
++static void d_show_dbus_filedialog(GtkWidget *widget_ghost)
++{
++    g_timeout_add(200, on_show_timeout, widget_ghost);
+ }
+ 
+ static void d_hide_dbus_filedialog(GtkWidget *widget_ghost)
+@@ -707,12 +785,6 @@ static GByteArray *d_gtk_file_filter_to_
+     if (rule_list_length <= 0)
+         return byte_array;
+ 
+-    int left_parenthesis_index = d_bbyte_array_find_char(byte_array, '(', 0);
+-
+-    if (left_parenthesis_index > 0 && (char)byte_array->data[byte_array->len - 1] == ')') {
+-        g_byte_array_remove_range(byte_array, left_parenthesis_index, byte_array->len - left_parenthesis_index + 1);
+-    }
+-
+     g_byte_array_append(byte_array, " (", 2);
+ 
+     for (int i = 0; i < rule_list_length; ++i) {
+@@ -919,10 +991,9 @@ static gboolean hook_gtk_file_chooser_di
+     }
+ 
+     // 判断窗管协议类型，决定调用哪套dbus接口
+-    GdkDisplay *display = gtk_widget_get_display(dialog);
++    GdkDisplay *display = gdk_display_get_default();
+ #ifdef GDK_WINDOWING_WAYLAND
+     if (GDK_IS_WAYLAND_DISPLAY(display)) {
+-        d_debug("dde-filedialog: gdk is wayland display!\n");
+         if (wayland_dbus_is_exist()) {
+             g_dbus_service = DFM_FILEDIALOG_DBUS_SERVER_WAYLAND;
+             g_dbus_path = DFM_FILEDIALOGMANAGER_DBUS_PATH_WAYLAND;
+@@ -931,7 +1002,6 @@ static gboolean hook_gtk_file_chooser_di
+ #endif
+ #ifdef GDK_WINDOWING_X11
+     if (GDK_IS_X11_DISPLAY(display)) {
+-        d_debug("dde-filedialog: gdk is x11 display!\n");
+         if (x11_dbus_is_exist()) {
+             g_dbus_service = DFM_FILEDIALOG_DBUS_SERVER_X11;
+             g_dbus_path = DFM_FILEDIALOGMANAGER_DBUS_PATH_X11;
+@@ -939,7 +1009,7 @@ static gboolean hook_gtk_file_chooser_di
+     } else
+ #endif
+     {
+-        d_debug("dde-filedialog: Unsupported GDK backend!\n");
++        g_print("Unsupported GDK backend!\n");
+     }
+ 
+     gboolean enable_dbus_dialog = FALSE;
