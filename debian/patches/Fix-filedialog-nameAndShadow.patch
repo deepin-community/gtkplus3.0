@@ -1,0 +1,117 @@
+Index: gtkplus3.0/gtk/ddefiledialog.c
+===================================================================
+--- gtkplus3.0.orig/gtk/ddefiledialog.c
++++ gtkplus3.0/gtk/ddefiledialog.c
+@@ -107,6 +107,9 @@ typedef struct _FilterRule
+ static gchar *g_dbus_service = DFM_FILEDIALOG_DBUS_SERVER;
+ static gchar *g_dbus_path = DFM_FILEDIALOGMANAGER_DBUS_PATH;
+ 
++static gboolean isShowingDDEFileDialog = FALSE;
++static gchar *ddeFileDialogObjectPathLatest = "";
++
+ static GSList *
+ files_to_strings (GSList  *files,
+           gchar * (*convert_func) (GFile *file))
+@@ -602,6 +605,8 @@ static void d_on_dbus_filedialog_finishe
+     gint32 dialog_code;
+     g_variant_get(parameters, "(i)", &dialog_code);
+ 
++    isShowingDDEFileDialog = FALSE;
++
+     if (dialog_code == Accepted && gtk_file_chooser_get_action(widget_ghost) == GTK_FILE_CHOOSER_ACTION_SAVE) {
+         GFile *file = gtk_file_chooser_get_file(widget_ghost);
+ 
+@@ -983,9 +988,15 @@ void d_get_gtk_dialog_response_id(GtkDia
+     }
+ }
+ 
++static void on_dialog_realized(GtkWidget *dialog) 
++{
++    gtk_widget_set_opacity(dialog, 0);
++}
++
+ static gboolean hook_gtk_file_chooser_dialog(GtkWidget            *dialog,
+                                              GtkWindow            *parent)
+ {
++    isShowingDDEFileDialog = FALSE;
+     if (getenv("_d_disable_filedialog")) {
+         return FALSE;
+     }
+@@ -1044,25 +1055,12 @@ static gboolean hook_gtk_file_chooser_di
+     if (!ok)
+         return FALSE;
+ 
+-    gtk_window_set_decorated(GTK_WINDOW(dialog), FALSE);
+     gtk_window_set_skip_pager_hint(GTK_WINDOW(dialog), TRUE);
+ 
+     d_debug("_d_show_gtk_file_chooser_dialog: %s\n", getenv("_d_show_gtk_file_chooser_dialog"));
+ 
+     if (!getenv("_d_show_gtk_file_chooser_dialog")) {
+-        gtk_window_set_opacity(GTK_WINDOW(dialog), 0);
+-        
+-        cairo_rectangle_int_t rectangle;
+-        rectangle.x = rectangle.y = rectangle.width = rectangle.height = 1;
+-        gtk_widget_shape_combine_region(dialog, cairo_region_create_rectangle(&rectangle));
+-
+-        GdkGeometry geometry;
+-
+-        geometry.max_width = 1;
+-        geometry.max_height = 1;
+-
+-        gtk_window_set_geometry_hints(GTK_WINDOW(dialog), NULL, &geometry, GDK_HINT_MAX_SIZE);
+-        gtk_window_resize(GTK_WINDOW(dialog), geometry.max_width, geometry.max_height);
++        g_signal_connect(dialog, "realize", G_CALLBACK(on_dialog_realized), NULL);
+ 
+         gtk_window_set_accept_focus(GTK_WINDOW(dialog), FALSE);
+         if (parent) {
+@@ -1076,6 +1074,8 @@ static gboolean hook_gtk_file_chooser_di
+     }
+ 
+     g_object_set_data(GTK_OBJECT(dialog), D_STRINGIFY(_d_dbus_file_dialog_object_path), dbus_object_path);
++    isShowingDDEFileDialog = TRUE;
++    ddeFileDialogObjectPathLatest = dbus_object_path;
+ 
+     // Init the dbus file chooser dialog
+     d_dbus_filedialog_set_property_by_ghost_widget_sync(GTK_WIDGET(dialog),
+@@ -1313,10 +1313,38 @@ gchar *gtk_file_chooser_get_filename(Gtk
+     return result;
+ }
+ 
+-//gboolean gtk_file_chooser_select_filename(GtkFileChooser *chooser, const char *filename)
+-//{
++D_EXPORT
++gboolean gtk_file_chooser_set_file (GtkFileChooser *chooser, GFile *file, GError **error)
++{
++    g_return_val_if_fail (GTK_IS_FILE_CHOOSER (chooser), FALSE);
++    g_return_val_if_fail (G_IS_FILE (file), FALSE);
++    g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
+ 
+-//}
++    gboolean ok;
++    gchar *basename;
++    gchar *dbus_object_path;
++    gboolean isSetData = FALSE;
++
++    gtk_file_chooser_unselect_all (chooser);
++    ok = gtk_file_chooser_select_file (chooser, file, error);
++
++    if (isShowingDDEFileDialog) {
++        basename = g_file_get_basename(file);
++        dbus_object_path = g_object_get_data(GTK_OBJECT(chooser), D_STRINGIFY(_d_dbus_file_dialog_object_path));
++        if (!dbus_object_path) {
++            g_object_set_data(GTK_OBJECT(chooser), D_STRINGIFY(_d_dbus_file_dialog_object_path), ddeFileDialogObjectPathLatest);
++            isSetData = TRUE;
++        }        
++        d_dbus_filedialog_call_by_ghost_widget_sync(chooser,
++            "setCurrentInputName",
++            g_variant_new("(s)", basename),
++            NULL, NULL);
++        if (isSetData)
++            g_object_set_data(GTK_OBJECT(chooser), D_STRINGIFY(_d_dbus_file_dialog_object_path), NULL);
++    }
++
++    return ok;
++}
+ 
+ //void gtk_file_chooser_unselect_filename(GtkFileChooser *chooser, const char *filename)
+ //{

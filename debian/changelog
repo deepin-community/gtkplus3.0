@@ -1,3 +1,10 @@
+gtk+3.0 (3.24.41-1deepin4) unstable; urgency=medium
+
+  * Fix not show file name when app save as.
+  * Fix the transparent window has shadow.
+
+ -- gongheng <gongheng@uniontech.com>  Thu, 15 May 2025 14:26:46 +0800
+
 gtk+3.0 (3.24.41-1deepin3) unstable; urgency=medium
 
   * Fix app crash when filter name include "()".
