@@ -8,3 +8,4 @@ fix-filedialog-in-wayland.patch
 CVE-2024-6655.patch
 Fix-filedialog-crash.patch
 Fix-filedialog-nameAndShadow.patch
+Fix-show-gtk-chooser.patch

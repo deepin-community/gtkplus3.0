@@ -1,3 +1,9 @@
+gtk+3.0 (3.24.41-1deepin5) unstable; urgency=medium
+
+  * Fix show the gtk chooser dialog in best preformance mode.
+
+ -- gongheng <gongheng@uniontech.com>  Mon, 21 Jul 2025 17:24:46 +0800
+
 gtk+3.0 (3.24.41-1deepin4) unstable; urgency=medium
 
   * Fix not show file name when app save as.
