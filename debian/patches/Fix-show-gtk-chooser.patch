@@ -1,0 +1,17 @@
+Index: gtkplus3.0/gtk/ddefiledialog.c
+===================================================================
+--- gtkplus3.0.orig/gtk/ddefiledialog.c
++++ gtkplus3.0/gtk/ddefiledialog.c
+@@ -1062,6 +1062,12 @@ static gboolean hook_gtk_file_chooser_di
+     if (!getenv("_d_show_gtk_file_chooser_dialog")) {
+         g_signal_connect(dialog, "realize", G_CALLBACK(on_dialog_realized), NULL);
+ 
++        // 设置窗口在最佳性能模式下不可见
++        gtk_window_set_decorated(GTK_WINDOW(dialog), FALSE);
++        cairo_rectangle_int_t rectangle;
++        rectangle.x = rectangle.y = rectangle.width = rectangle.height = 1;
++        gtk_widget_shape_combine_region(dialog, cairo_region_create_rectangle(&rectangle));
++
+         gtk_window_set_accept_focus(GTK_WINDOW(dialog), FALSE);
+         if (parent) {
+             // 必须放到此处设置, 否则会导致对话框关闭后焦点不会自动回到主窗口
