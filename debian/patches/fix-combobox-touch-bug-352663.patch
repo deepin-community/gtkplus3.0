@@ -1,0 +1,50 @@
+Author: Tian Shilin <tianshilin@uniontech.com>
+Date:   Thu May 21 14:29:32 2026 +0800
+Subject: combobox: open dropdown on touch without breaking mouse press-drag
+Upstream: https://gitlab.gnome.org/GNOME/gtk/-/commit/69d2459471e36309f63b651b18da1ed3fdedc148
+Bug: bug-352663
+
+Description:
+ The button-press-event handler on the combobox toggle button unconditionally
+ calls gtk_combo_box_menu_popup() and returns TRUE on every primary press.
+ For touchscreen-sourced events this blocks the touch grab transfer that the
+ popup menu needs, leaving the dropdown unable to open by touch.
+ .
+ Detect the event source device and, when it is GDK_SOURCE_TOUCHSCREEN,
+ return FALSE so that GtkToggleButton's "toggled" signal path
+ (gtk_combo_box_button_toggled) opens the popup instead.  Pointer and pen
+ events keep the original press-time popup behaviour, so the
+ press-drag-release selection gesture still works for mouse users.
+ .
+ Upstream GTK4 fixed the same bug by removing the press handler entirely
+ (commit 69d2459471e36309f63b651b18da1ed3fdedc148), which also drops the
+ mouse press-drag selection gesture.  This patch keeps both code paths
+ and only short-circuits the touchscreen case, so GTK3 applications keep
+ the original mouse behaviour while gaining touchscreen support.
+
+--- a/gtk/gtkcombobox.c
++++ b/gtk/gtkcombobox.c
+@@ -2802,10 +2802,23 @@ gtk_combo_box_menu_button_press (GtkWid
+ {
+   GtkComboBox *combo_box = GTK_COMBO_BOX (user_data);
+   GtkComboBoxPrivate *priv = combo_box->priv;
++  GdkDevice *device;
++  GdkInputSource source;
+
+   if (GTK_IS_MENU (priv->popup_widget) &&
+       event->type == GDK_BUTTON_PRESS && event->button == GDK_BUTTON_PRIMARY)
+     {
++      /* For touchscreen-sourced events, defer to GtkToggleButton's "toggled"
++       * signal path (gtk_combo_box_button_toggled).  Returning TRUE here would
++       * block the touch grab transfer that the popup menu needs, leaving the
++       * dropdown unable to open on touch.  Pointer/pen events keep the
++       * press-time popup so the press-drag-release selection gesture still
++       * works for mouse users. */
++      device = gdk_event_get_source_device ((GdkEvent *) event);
++      source = device ? gdk_device_get_source (device) : GDK_SOURCE_MOUSE;
++      if (source == GDK_SOURCE_TOUCHSCREEN)
++        return FALSE;
++
+       if (gtk_widget_get_focus_on_click (GTK_WIDGET (combo_box)) &&
+           !gtk_widget_has_focus (priv->button))
+         gtk_widget_grab_focus (priv->button);
