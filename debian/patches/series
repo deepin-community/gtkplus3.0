@@ -9,3 +9,4 @@ CVE-2024-6655.patch
 Fix-filedialog-crash.patch
 Fix-filedialog-nameAndShadow.patch
 Fix-show-gtk-chooser.patch
+fix-combobox-touch-bug-352663.patch

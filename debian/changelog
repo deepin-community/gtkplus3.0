@@ -1,3 +1,9 @@
+gtk+3.0 (3.24.41-1deepin6) unstable; urgency=medium
+
+  * fix: combobox dropdown cannot be opened by touch  
+
+ -- Tian ShiLin <tianshilin@uniontech.com>  Thu, 21 May 2026 17:28:49 +0800
+
 gtk+3.0 (3.24.41-1deepin5) unstable; urgency=medium
 
   * Fix show the gtk chooser dialog in best preformance mode.
