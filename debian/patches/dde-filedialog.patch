@@ -587,7 +587,9 @@ Index: gtk+3.0/gtk/ddefiledialog.c
 +    int selected_files_length = g_variant_iter_n_children(selected_files);
 +
 +    for (int i = 0; i < selected_files_length; ++i) {
-+        gchar *file_uri = g_variant_get_string(g_variant_iter_next_value(selected_files), NULL);
++        GVariant *value = g_variant_iter_next_value(selected_files);
++        const gchar *file_uri = g_variant_get_string(value, NULL);
++        g_variant_unref(value);
 +
 +        gtk_file_chooser_select_uri(GTK_FILE_CHOOSER_DIALOG(widget_ghost), file_uri);
 +        d_debug("selected file uri=%s\n", file_uri);
@@ -759,13 +761,14 @@ Index: gtk+3.0/gtk/ddefiledialog.c
 +            d_debug("mimes length: %d\n", mimes_length);
 +
 +            for (int j = 0; j < mimes_length; ++j) {
-+                gchar *pattern = g_variant_get_string(g_variant_iter_next_value(patterns), NULL);
++                GVariant *value = g_variant_iter_next_value(patterns);
++                const gchar *pattern = g_variant_get_string(value, NULL);
++                g_variant_unref(value);
 +
 +                d_debug("%d: pattern: %s\n", j, pattern);
 +
 +                g_byte_array_append(byte_array, pattern, strlen(pattern));
 +                g_byte_array_append(byte_array, " ", 1);
-+                g_free(pattern);
 +            }
 +
 +            g_variant_iter_free(patterns);
@@ -1452,9 +1455,10 @@ Index: gtk+3.0/gtk/ddefiledialog.c
 +    int selected_files_length = g_variant_iter_n_children(selected_files);
 +
 +    for (int i = 0; i < selected_files_length; ++i) {
-+        gchar *file_path = g_variant_get_string(g_variant_iter_next_value(selected_files), NULL);
++        GVariant *value = g_variant_iter_next_value(selected_files);
++        const gchar *file_path = g_variant_get_string(value, NULL);
++        g_variant_unref(value);
 +        GFile *file = g_file_new_for_path(file_path);
-+        g_free(file_path);
 +
 +        file_list = g_slist_append(file_list, file);
 +
