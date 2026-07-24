@@ -1,3 +1,27 @@
+gtk+3.0 (3.24.41-1deepin7) unstable; urgency=medium
+
+  * debian/patches/dde-filedialog.patch:
+    - Fix GVariant lifecycle in gtk_file_chooser_get_files().
+      Store GVariant returned by g_variant_iter_next_value() and properly
+      unref it after using the string, instead of leaking it.
+    - Fix GVariant lifecycle in on_selectedUrlsChanged().
+      Store GVariant returned by g_variant_iter_next_value() and properly
+      unref it after using the string, instead of leaking it.
+    - Fix GVariant lifecycle in glob_patterns_append().
+      Store GVariant returned by g_variant_iter_next_value() and properly
+      unref it after using the string, instead of leaking it.
+    - Fix use-after-free in gtk_file_chooser_get_files().
+      Remove g_free() on the string returned by g_variant_get_string(),
+      which returns a pointer to the variant's internal data and must not
+      be freed. The string is used before the variant is unreffed.
+    - Fix use-after-free in glob_patterns_append().
+      Remove g_free() on the string returned by g_variant_get_string().
+    - Root cause: g_variant_get_string() returns a pointer to the string
+      inside the GVariant, not a newly allocated copy. Calling g_free() on
+      the pointer after g_variant_unref() causes heap corruption.
+
+ -- lichenggang <lichenggang@uniontech.com>  Fri, 24 Jul 2026 19:20:00 +0800
+
 gtk+3.0 (3.24.41-1deepin6) unstable; urgency=medium
 
   * fix: combobox dropdown cannot be opened by touch  
