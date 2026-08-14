@@ -1,3 +1,19 @@
+gtk+3.0 (3.24.41-1deepin8) unstable; urgency=medium
+
+  * debian/patches/dde-filedialog.patch:
+    - Fix use-after-free in gtk_file_chooser_get_files(): use the string
+      returned by g_variant_get_string() before g_variant_unref(), instead
+      of unref'ing first and then reading the freed string.
+    - Fix use-after-free in d_on_dbus_filedialog_selectionFilesChanged().
+    - Fix use-after-free in d_gtk_file_filter_to_string() (MIME filter).
+    - Add NULL guard for g_variant_iter_next_value() result in all loops.
+    - Fix gtk_file_chooser_get_file() GFile ownership: use g_object_ref()
+      to return an independent reference (transfer-full).
+    - Use g_free() instead of free() for g_file_get_basename() result.
+    Fix GVariant/GFile ownership per GTK3 DDE FileDialog GLib2.84 plan.
+
+ -- lichenggang <lichenggang@uniontech.com>  Fri, 14 Aug 2026 16:00:00 +0800
+
 gtk+3.0 (3.24.41-1deepin7) unstable; urgency=medium
 
   * debian/patches/dde-filedialog.patch:
