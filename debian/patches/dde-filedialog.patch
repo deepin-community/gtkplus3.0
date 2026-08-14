@@ -2,7 +2,7 @@ Index: gtk+3.0/gtk/ddefiledialog.c
 ===================================================================
 --- /dev/null
 +++ gtk+3.0/gtk/ddefiledialog.c
-@@ -0,0 +1,1636 @@
+@@ -0,0 +1,1648 @@
 +#include <gtk/gtk.h>
 +#include <gtk/gtkfilechooserprivate.h>
 +#include <gtk/gtkfilefilter.h>
@@ -534,7 +534,7 @@ Index: gtk+3.0/gtk/ddefiledialog.c
 +            char *file_basename = g_file_get_basename(file);
 +            g_object_unref(file);
 +            gtk_file_chooser_set_current_name(widget_ghost, file_basename);
-+            free(file_basename);
++            g_free(file_basename);
 +        }
 +
 +        // 在show之前设置是否显示覆盖询问对话框，因为在某些程序中可能是使用g_object_set直接设置的属性
@@ -588,11 +588,14 @@ Index: gtk+3.0/gtk/ddefiledialog.c
 +
 +    for (int i = 0; i < selected_files_length; ++i) {
 +        GVariant *value = g_variant_iter_next_value(selected_files);
++        if (!value)
++            continue;
++
 +        const gchar *file_uri = g_variant_get_string(value, NULL);
-+        g_variant_unref(value);
 +
 +        gtk_file_chooser_select_uri(GTK_FILE_CHOOSER_DIALOG(widget_ghost), file_uri);
 +        d_debug("selected file uri=%s\n", file_uri);
++        g_variant_unref(value);
 +    }
 +
 +    g_variant_iter_free(selected_files);
@@ -762,13 +765,16 @@ Index: gtk+3.0/gtk/ddefiledialog.c
 +
 +            for (int j = 0; j < mimes_length; ++j) {
 +                GVariant *value = g_variant_iter_next_value(patterns);
++                if (!value)
++                    continue;
++
 +                const gchar *pattern = g_variant_get_string(value, NULL);
-+                g_variant_unref(value);
 +
 +                d_debug("%d: pattern: %s\n", j, pattern);
 +
 +                g_byte_array_append(byte_array, pattern, strlen(pattern));
 +                g_byte_array_append(byte_array, " ", 1);
++                g_variant_unref(value);
 +            }
 +
 +            g_variant_iter_free(patterns);
@@ -966,7 +972,7 @@ Index: gtk+3.0/gtk/ddefiledialog.c
 +    ok = d_dbus_filedialogmanager_call_by_ghost_widget_sync("canUseFileChooserDialog",
 +                                                            g_variant_new("(ss)", "gtk3", file_basename),
 +                                                            "(b)", &enable_dbus_dialog);
-+    free(file_basename);
++    g_free(file_basename);
 +
 +    if (ok && !enable_dbus_dialog)
 +        return FALSE;
@@ -1406,8 +1412,7 @@ Index: gtk+3.0/gtk/ddefiledialog.c
 +    list = gtk_file_chooser_get_files (chooser);
 +    if (list)
 +    {
-+        result = list->data;
-+        list = g_slist_delete_link (list, list);
++        result = g_object_ref (list->data);
 +
 +        g_slist_foreach (list, (GFunc) g_object_unref, NULL);
 +        g_slist_free (list);
@@ -1456,9 +1461,12 @@ Index: gtk+3.0/gtk/ddefiledialog.c
 +
 +    for (int i = 0; i < selected_files_length; ++i) {
 +        GVariant *value = g_variant_iter_next_value(selected_files);
++        if (!value)
++            continue;
++
 +        const gchar *file_path = g_variant_get_string(value, NULL);
-+        g_variant_unref(value);
 +        GFile *file = g_file_new_for_path(file_path);
++        g_variant_unref(value);
 +
 +        file_list = g_slist_append(file_list, file);
 +
