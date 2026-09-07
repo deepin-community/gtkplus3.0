@@ -10,3 +10,4 @@ Fix-filedialog-crash.patch
 Fix-filedialog-nameAndShadow.patch
 Fix-show-gtk-chooser.patch
 fix-combobox-touch-bug-352663.patch
+fix-filedialog-xwayland-badwindow.patch
