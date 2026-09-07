@@ -1,0 +1,27 @@
+Index: gtkplus3.0/gtk/ddefiledialog.c
+===================================================================
+--- gtkplus3.0.orig/gtk/ddefiledialog.c
++++ gtkplus3.0/gtk/ddefiledialog.c
+@@ -563,7 +563,21 @@ static gboolean on_show_timeout(GtkWidge
+     if (GDK_IS_X11_DISPLAY(display)) {
+         if (!d_dbus_filedialog_call_by_ghost_widget_sync(widget_ghost, "winId", NULL, "(t)", &dbus_dialog_winId))
+             return FALSE;
+-        XSetTransientForHint(gdk_x11_get_default_xdisplay(), dbus_dialog_winId, GDK_WINDOW_XID(gtk_widget_get_window(widget_ghost)));
++
++        Display *dpy = gdk_x11_get_default_xdisplay();
++        Window root_ret;
++        int x_ret, y_ret;
++        unsigned int w_ret, h_ret, bw_ret, depth_ret;
++
++        gdk_error_trap_push();
++        gboolean winid_valid = (XGetGeometry(dpy, dbus_dialog_winId,
++                                             &root_ret, &x_ret, &y_ret,
++                                             &w_ret, &h_ret, &bw_ret, &depth_ret) != 0);
++        gdk_error_trap_pop_ignored();
++
++        if (winid_valid)
++            XSetTransientForHint(dpy, dbus_dialog_winId,
++                                 GDK_WINDOW_XID(gtk_widget_get_window(widget_ghost)));
+     }
+ #endif
+ 

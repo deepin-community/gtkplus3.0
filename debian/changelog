@@ -1,3 +1,12 @@
+gtk+3.0 (3.24.41-1deepin9) unstable; urgency=medium
+
+  * debian/patches/fix-filedialog-xwayland-badwindow.patch:
+    - Fix BadWindow crash in the file chooser under XWayland. Validate the
+      dbus dialog winId with XGetGeometry() inside a gdk error trap before
+      calling XSetTransientForHint().
+
+ -- guolin <guolin@uniontech.com>  Mon, 07 Sep 2026 15:52:30 +0800
+
 gtk+3.0 (3.24.41-1deepin8) unstable; urgency=medium
 
   * debian/patches/dde-filedialog.patch:
