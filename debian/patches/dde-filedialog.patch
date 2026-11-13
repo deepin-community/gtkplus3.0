@@ -275,7 +275,7 @@ Index: gtk+3.0/gtk/ddefiledialog.c
 +
 +    d_debug("method name: %s, call finished: %d\n", method_name, ok);
 +
-+    if (reply_data)
++    if (ok && reply_data)
 +        g_variant_get(result, reply_type, reply_data);
 +
 +    if (result) {
@@ -303,7 +303,7 @@ Index: gtk+3.0/gtk/ddefiledialog.c
 +                                              (const GVariantType *)reply_type,
 +                                              &result);
 +
-+    if (reply_data)
++    if (ok && reply_data)
 +        g_variant_get(result, reply_type, reply_data);
 +
 +    if (result) {
@@ -958,7 +958,7 @@ Index: gtk+3.0/gtk/ddefiledialog.c
 +    gboolean ok = d_dbus_filedialogmanager_call_by_ghost_widget_sync("isUseFileChooserDialog",
 +                                                                     NULL, "(b)", &enable_dbus_dialog);
 +
-+    if (ok && !enable_dbus_dialog)
++    if (!ok || !enable_dbus_dialog)
 +        return FALSE;
 +
 +    GFile *file_this = g_file_new_for_path(g_get_application_name());
@@ -974,7 +974,7 @@ Index: gtk+3.0/gtk/ddefiledialog.c
 +                                                            "(b)", &enable_dbus_dialog);
 +    g_free(file_basename);
 +
-+    if (ok && !enable_dbus_dialog)
++    if (!ok || !enable_dbus_dialog)
 +        return FALSE;
 +
 +    gchar *dbus_object_path = NULL;
