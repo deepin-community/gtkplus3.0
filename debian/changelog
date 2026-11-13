@@ -1,3 +1,10 @@
+gtk+3.0 (3.24.41-1deepin10) unstable; urgency=medium
+
+  * dde-filedialog: Don't crash when the file manager D-Bus service is
+    unavailable, fall back to the native dialog.
+
+ -- Tianyu Chen <sweetyfish@deepin.org>  Fri, 13 Nov 2026 17:51:49 +0800
+
 gtk+3.0 (3.24.41-1deepin9) unstable; urgency=medium
 
   * debian/patches/fix-filedialog-xwayland-badwindow.patch:
